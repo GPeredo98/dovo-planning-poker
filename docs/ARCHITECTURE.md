@@ -73,11 +73,11 @@ This structure is a guide for implementation. Keep the existing App Router and a
 
 The room code helps people find a room; it is not a password and does not prove that someone is the host. Room identifiers must be random, and join endpoints must rate-limit attempts to reduce enumeration and abuse.
 
-Mutations go through server Route Handlers. The server validates the room, participant, vote format, and required permission before writing to Supabase. Each participant receives a random credential scoped to their room; it is kept only in client memory and verified on the server. Only a hash of the credential is stored in the database. It is not stored in `localStorage`. The `service_role` key exists only on the server.
+Mutations go through server Route Handlers. The server validates the room, participant, vote format, and required permission before writing to Supabase. Each participant receives a random credential scoped to their room. The server stores only its hash in the database and sends the raw credential in an `HttpOnly`, `SameSite=Lax` session cookie scoped to that room's API. The credential is never available to client JavaScript and is not stored in `localStorage`. The `service_role` key exists only on the server.
 
 The browser can subscribe to the room's Realtime channel, but cannot directly change room state or assign itself the host role. The room identifier must be unpredictable, and Realtime messages must not include credentials. Data published to the channel must be limited to what members of that room are allowed to see. After a mutation, the client accepts the server-confirmed change; on reconnect, it fetches a snapshot to reconcile its state.
 
-A full page reload loses the in-memory credential: the user must rejoin through the link or code and receives a new membership. Before implementation, define how disconnected members expire and how the host role is recovered or transferred after a reload.
+A full page reload preserves the participant session through the HTTP-only cookie, so the host does not lose control when refreshing. When the browser session ends, the cookie expires; the person can rejoin through the room link or code as a new membership. A host who permanently leaves should transfer the role first. Define a recovery policy for unexpectedly abandoned hosts before production.
 
 ## Initial data model
 
