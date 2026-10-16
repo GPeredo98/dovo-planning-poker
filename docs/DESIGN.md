@@ -1,64 +1,77 @@
-# DESIGN SYSTEM
+# Dovo Planning Poker Design System
 
-Este documento define las reglas de diseño para el portafolio personal de Gabriel Peredo. La estética se define como Industrial Tech-Noir: una mezcla de minimalismo extremo, interfaces de alta fidelidad y acentos de luz orgánica (Aurora).
+## Design direction
 
-## 1. PALETA DE COLORES (DEEP SPACE)
+Dovo is a focused team tool with a calm, precise interface. It borrows the clarity, generous spacing, rounded controls, and restrained translucency associated with native iOS interfaces without copying platform chrome or hiding important actions behind gestures.
 
-| Elemento | Token | Valor Hex/Tailwind | Aplicacion |
-| :--- | :--- | :--- | :--- |
-| Fondo Base | bg-base | #030712 (Zinc 950) | Fondo principal de la pagina |
-| Superficie | bg-surface | zinc-900/40 | Tarjetas y contenedores con transparencia |
-| Borde | border-dim | zinc-800/50 | Divisores y bordes de tarjetas por defecto |
-| Acento 1 | accent-cyan | cyan-500 | Interactividad, estados activos y badges |
-| Acento 2 | accent-purple | purple-600 | Degradados secundarios y efectos de profundidad |
-| Texto Primario | text-main | white | Titulos y acciones principales |
-| Texto Secundario | text-muted | zinc-400 | Descripciones y metadatos |
+The existing muted green and warm amber palette remains the visual signature. Light and dark themes use the same semantic tokens. Glass is a subtle surface treatment, not a full-screen effect: keep content readable, avoid stacked translucent panels, and do not place cards inside cards.
 
-## 2. TIPOGRAFIA Y ESCALA VISUAL
+## Color tokens
 
-* Principal: Sans-serif moderna (Inter, Geist o SF Pro)
-* Mono: Para metadatos y tecnologia (Fira Code o JetBrains Mono)
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `--page` | `#eef1ed` | `#141b18` | Page background |
+| `--surface` | `#f8faf7` | `#1c2520` | Solid fallback surface |
+| `--surface-raised` | `#ffffff` | `#222e27` | Raised controls and overlays |
+| `--ink` | `#1b2721` | `#eef4ef` | Primary text |
+| `--muted` | `#6a766e` | `#a5b2a9` | Supporting text and metadata |
+| `--line` | `#d7dfd8` | `#36453b` | Dividers |
+| `--line-strong` | `#bcc9bf` | `#506357` | Input and control borders |
+| `--accent` | `#28664f` | `#83c8a5` | Primary actions and selected states |
+| `--signal` | `#d8aa4f` | `#e2bd6c` | Round and host indicators |
+| `--danger` | `#a84a3f` | `#ed9689` | Errors and destructive actions |
 
-| Estilo | Tailwind Class | Uso |
-| :--- | :--- | :--- |
-| H1 Hero | text-7xl font-extrabold tracking-tight | Titulo principal del Home |
-| H2 Section | text-5xl font-bold tracking-tight | Titulos de secciones |
-| H3 Card | text-2xl font-bold | Titulos dentro de proyectos/tarjetas |
-| Body | text-base text-zinc-400 leading-relaxed | Parrafos generales |
-| Label | text-[10px] uppercase font-bold tracking-wider | Badges, tecnologias y fechas |
+Use semantic tokens rather than hard-coded colors in components. Do not add a third theme or derive a theme automatically from the operating system.
 
-## 3. COMPONENTES DE UI SIGNATURE
+## Subtle glass
 
-### A. THE GLASSMORPHISM CARD
-* Efecto: Fondo zinc-900/40 con backdrop-blur-md
-* Borde: 1px solid zinc-800
-* Hover: El borde cambia a cyan-500/50 y el fondo a zinc-900/60
-* Radio: rounded-3xl (24px)
+| Token | Light | Dark |
+| --- | --- | --- |
+| `--glass-surface` | `rgb(255 255 255 / 68%)` | `rgb(255 255 255 / 4%)` |
+| `--glass-strong` | `rgb(255 255 255 / 82%)` | `rgb(255 255 255 / 7%)` |
+| `--glass-border` | `rgb(255 255 255 / 88%)` | `rgb(255 255 255 / 9%)` |
 
-### B. AURORA GLOW (FONDO ORGANICO)
-* Uso: Circulos absolutos con blur-[120px]
-* Opacidad: No exceder el 20%
-* Posicionamiento: Detras del contenido para dar profundidad sin sacrificar legibilidad
+- Use a 10–14px backdrop blur on selected surfaces: the sticky header, entry panels, room heading, round status, voting cards, and transient toast.
+- Keep the blur and border low-contrast. The page background remains opaque and carries a very faint structural grid.
+- Inputs and cards must retain a solid-color fallback when backdrop filters are unavailable or reduced transparency is requested.
+- Avoid large blurred blobs, strong gradients, bright glow, and excessive shadows.
 
-### C. THE GLOW BUTTON
-* Principal: Fondo solido white, texto black, hover:scale-105
-* Secundario: Fondo zinc-900, borde zinc-800, texto white
-* Action (WA): Fondo green-600, sombra shadow-[0_0_20px_rgba(34,197,94,0.2)]
+## Shape and depth
 
-## 4. REGLAS DE INTERACCION Y ANIMACION
+| Element | Radius |
+| --- | ---: |
+| Compact controls, inputs, icon buttons | 12px |
+| Voting and result cards | 14px |
+| Entry and room panels | 18px |
+| Avatars and status dots | 50% |
 
-1. Micro-interacciones: Todo elemento interactivo debe tener una transicion de 300ms ease-in-out
-2. Parallax Sutil: Las imagenes de los proyectos deben escalar un 10% (scale-110) al hacer hover sobre la tarjeta padre
-3. Active State: Los enlaces del Navbar deben mostrar un cambio de color a blanco y una sutil sombra de texto
-4. Scroll Behavior: Implementar scroll-smooth para la navegacion entre secciones mediante el Navbar
+Prefer thin borders and small, soft shadows over heavy elevation. Use rounded corners consistently; avoid capsule-shaped controls unless they represent a compact status or count.
 
-## 5. STACK TECNOLOGICO DE IMPLEMENTACION
+## Typography
 
-* Framework: Next.js 15+ (App Router)
-* Styling: Tailwind CSS
-* Icons: Lucide-React (Stroke Width: 1.5 - 2)
-* Components: Radix UI / Shadcn UI (Customizado con los tokens de arriba)
+- Use Geist Sans for interface copy and Geist Mono for room codes, round numbers, and numeric estimates.
+- Keep headings purposeful and compact: a clear home headline, moderate room titles, and small section labels.
+- Use sentence case for controls. Metadata can use uppercase mono labels sparingly.
+- Keep letter spacing at zero and allow long translated labels to wrap instead of clipping.
 
-## 6. ESTRUCTURA DE PROMPT PARA NUEVA SECCION
+## Product surfaces
 
-Disena una nueva seccion para el portafolio de Gabriel Peredo siguiendo el DESIGN.md. Usa un fondo #030712, tarjetas con bg-zinc-900/40 y backdrop-blur, tipografia tracking-tight y acentos en cyan-500. Asegurate de que los iconos sean de lucide-react y que el estilo sea minimalista y tecnologico.
+- **Home:** keep Create room and Join room as the two obvious paths. On wider screens, show the two lightly glazed panels side by side; stack them on narrow screens.
+- **Room:** keep the room/topic heading, invite actions, round status, vote deck, and member list easy to scan. The host's next action is visually prominent without overpowering the selected card.
+- **Voting cards:** use stable dimensions and a clear selected state. Hidden votes show only whether a participant has voted; never expose values before reveal.
+- **Advertising:** reserve a quiet, labeled placement outside the primary control path. Ads must not cover or shift voting controls.
+
+## Responsive and RTL behavior
+
+- Use CSS logical properties (`margin-inline`, `padding-inline`, `border-inline-start`, and `inset-inline-*`) for layout.
+- In Arabic, set `lang="ar"` and `dir="rtl"`; mirror directional icons where appropriate.
+- Keep room codes and card values LTR and legible within RTL layouts.
+- Preserve usable touch targets, stable card sizes, and clear spacing on mobile. Check for horizontal overflow at 320px and above.
+
+## Interaction and accessibility
+
+- Use 150–200ms transitions for color, border, and small elevation changes. Avoid scaling buttons or moving layout on hover.
+- Respect `prefers-reduced-motion` and `prefers-reduced-transparency`.
+- Keep visible focus indicators, accessible control names, and keyboard-operable dialogs and actions.
+- Maintain readable contrast in both themes. Do not communicate vote, connection, host, or error state through color alone.
+- Use Lucide icons for icon-only actions and provide a tooltip or accessible label.

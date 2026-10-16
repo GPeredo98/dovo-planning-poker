@@ -68,7 +68,7 @@ export function HomeScreen() {
       </section>
 
       <section className="entry-grid" aria-label={t("appName")}>
-        <form className="entry-section create-section" onSubmit={(event) => { event.preventDefault(); void submitRoom("create"); }}>
+        <form className="entry-section create-section backdrop-blur-md" onSubmit={(event) => { event.preventDefault(); void submitRoom("create"); }}>
           <div className="section-index">01 <span /></div>
           <div className="entry-copy">
             <h2><Plus size={19} aria-hidden="true" />{t("createSection")}</h2>
@@ -90,7 +90,7 @@ export function HomeScreen() {
           </button>
         </form>
 
-        <form className="entry-section join-section" onSubmit={(event) => { event.preventDefault(); void submitRoom("join"); }}>
+        <form className="entry-section join-section backdrop-blur-md" onSubmit={(event) => { event.preventDefault(); void submitRoom("join"); }}>
           <div className="section-index">02 <span /></div>
           <div className="entry-copy">
             <h2><DoorOpen size={19} aria-hidden="true" />{t("joinSection")}</h2>

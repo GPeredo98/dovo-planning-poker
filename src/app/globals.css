@@ -18,6 +18,12 @@
   --danger: #a84a3f;
   --danger-soft: #f4e3df;
   --shadow: 0 20px 60px rgb(22 42 32 / 7%);
+  --glass-surface: rgb(255 255 255 / 68%);
+  --glass-strong: rgb(255 255 255 / 82%);
+  --glass-border: rgb(255 255 255 / 88%);
+  --radius-control: 12px;
+  --radius-panel: 18px;
+  --radius-card: 14px;
 }
 
 :root[data-theme="dark"] {
@@ -38,6 +44,9 @@
   --danger: #ed9689;
   --danger-soft: #412b29;
   --shadow: 0 24px 70px rgb(0 0 0 / 22%);
+  --glass-surface: rgb(255 255 255 / 4%);
+  --glass-strong: rgb(255 255 255 / 7%);
+  --glass-border: rgb(255 255 255 / 9%);
 }
 
 @theme inline {
@@ -108,6 +117,24 @@ select:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
+.site-header {
+  position: sticky;
+  z-index: 10;
+  top: 10px;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-inline: 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-panel);
+  background: var(--glass-surface);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  box-shadow: 0 8px 24px rgb(22 42 32 / 4%);
+}
+
 .wordmark {
   display: inline-flex;
   align-items: center;
@@ -123,7 +150,7 @@ select:focus-visible {
   width: 30px;
   aspect-ratio: 1;
   place-items: center;
-  border-radius: 8px 8px 8px 2px;
+  border-radius: 10px;
   background: var(--accent);
   color: var(--accent-ink);
   font-family: var(--font-geist-mono), monospace;

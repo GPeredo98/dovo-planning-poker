@@ -19,7 +19,7 @@ export function SiteHeader() {
   const nextTheme = theme === "light" ? "dark" : "light";
 
   return (
-    <header className="site-header">
+    <header className="site-header backdrop-blur-md">
       <Link className="wordmark" href="/" aria-label={`${t("appName")} home`}>
         <span className="wordmark-symbol" aria-hidden="true">D</span>
         <span>{t("appName")}</span>

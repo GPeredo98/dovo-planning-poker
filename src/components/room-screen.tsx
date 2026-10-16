@@ -263,7 +263,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
             <span className="room-live"><span className="live-dot" />{t("joined")}</span>
           </div>
 
-          <section className="room-heading-area">
+          <section className="room-heading-area backdrop-blur-md">
             <div className="room-title-block">
               <div className="room-title-row">
                 {editingRoom && isHost ? (
@@ -331,7 +331,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
             </div>
           </section>
 
-          <section className="round-strip" aria-live="polite">
+          <section className="round-strip backdrop-blur-md" aria-live="polite">
             <div className="round-label"><span className="round-number">{String(snapshot.room.round).padStart(2, "0")}</span><span>{t("currentRound")}</span></div>
             <span className={`round-state ${snapshot.room.revealed ? "is-revealed" : ""}`}>
               <span className="round-state-dot" />{snapshot.room.revealed ? t("revealed") : t("voting")}
@@ -364,7 +364,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
               {snapshot.room.revealed ? (
                 <div className="revealed-results">
                   {snapshot.members.map((member, index) => (
-                    <div className="result-tile" key={member.id} style={{ "--tile-index": index } as React.CSSProperties}>
+                    <div className="result-tile backdrop-blur-md" key={member.id} style={{ "--tile-index": index } as React.CSSProperties}>
                       <span className="result-name">{member.id === snapshot.currentParticipantId ? t("you") : member.name}</span>
                       <strong>{member.vote ?? "–"}</strong>
                     </div>
@@ -376,7 +376,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                   <div className="vote-deck" role="group" aria-label={t("selectCard")}>
                     {VOTE_CARDS.map((card, index) => (
                       <button
-                        className={`vote-card${selectedVote === card ? " is-selected" : ""}`}
+                        className={`vote-card backdrop-blur-md${selectedVote === card ? " is-selected" : ""}`}
                         key={card}
                         type="button"
                         disabled={pending}
@@ -450,7 +450,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
         </>
       )}
 
-      {toast && <div className="toast-message" role="status"><Check size={15} />{toast}</div>}
+      {toast && <div className="toast-message backdrop-blur-md" role="status"><Check size={15} />{toast}</div>}
     </main>
   );
 }
