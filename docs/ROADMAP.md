@@ -17,3 +17,4 @@
 - ver como mejorar performance del realtime
 - que cada usuario pueda subir el link de una imagen para tener como foto y la UI muestre a las personitas
 - Que el nombre no se repita
+- algun grafiquito a lado del tagline de la landing
