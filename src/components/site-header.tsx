@@ -24,7 +24,7 @@ export function SiteHeader() {
       <Link className="wordmark" href="/" aria-label={`${t("appName")} home`}>
         <span className="wordmark-symbol" aria-hidden="true">D</span>
         <span>{t("appName")}</span>
-        <span className="wordmark-version">v{packageJson.version}</span>
+        <span className="wordmark-version"><span>v{packageJson.version}</span></span>
       </Link>
       <div className="header-controls">
         <label className="locale-select">
