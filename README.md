@@ -45,7 +45,7 @@ Supabase is not configured in this scaffold yet. The planned environment variabl
 
 1. Create a Supabase project and copy its project URL, public anon key, and service-role key from the API settings into `.env.local`.
 2. Open the Supabase SQL Editor and run [`supabase/schema.sql`](supabase/schema.sql). It creates the room tables, rate limits, locked-down row-level security, and server-only RPC functions.
-3. Enable Realtime for the project. The app uses public room-specific broadcast channels only for change notifications; all reads and writes go through server routes.
+3. No table publication setup is needed for this app's Realtime Broadcast channels. They carry room change notifications only; all reads and writes go through server routes. Do not enable Postgres Changes for these tables.
 4. In Supabase **Database → Extensions**, enable `pg_cron`, then run this once in the SQL Editor to remove rooms after their seven-day inactivity window:
 
 	 ```sql
