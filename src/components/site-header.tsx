@@ -28,7 +28,7 @@ export function SiteHeader({ onHomeClick }: SiteHeaderProps) {
     <header className="site-header backdrop-blur-md">
       <Link className="wordmark" href="/" onClick={onHomeClick} aria-label={`${t("appName")} home`}>
         <span className="wordmark-symbol" aria-hidden="true">D</span>
-        <span>{t("appName")}</span>
+        <span>Dovo Planning Poker</span>
         <span className="wordmark-version"><span>v{packageJson.version}</span></span>
       </Link>
       <div className="header-controls">
