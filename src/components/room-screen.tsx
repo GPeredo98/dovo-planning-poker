@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -42,6 +43,7 @@ function errorMessage(code: string | undefined, t: ReturnType<typeof useTranslat
 }
 
 export function RoomScreen({ roomId }: RoomScreenProps) {
+  const router = useRouter();
   const t = useTranslation();
   const { locale, name, setName } = usePreferences();
   const [pageState, setPageState] = useState<PageState>("loading");
@@ -55,6 +57,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   const [editingTopic, setEditingTopic] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [topicDraft, setTopicDraft] = useState("");
+  const departureSent = useRef(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -120,6 +123,71 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
       if (client && channel) void client.removeChannel(channel);
     };
   }, [roomId]);
+
+  useEffect(() => {
+    const roomPath = `/room/${roomId}`;
+
+    function sendDeparture() {
+      if (departureSent.current) return;
+      departureSent.current = true;
+      const endpoint = `/api/rooms/${roomId}/leave`;
+      const queued = navigator.sendBeacon(endpoint, new Blob([], { type: "text/plain" }));
+      if (!queued) {
+        void fetch(endpoint, { method: "POST", keepalive: true }).catch(() => undefined);
+      }
+    }
+
+    function handleHistoryNavigation() {
+      if (window.location.pathname !== roomPath) sendDeparture();
+    }
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        departureSent.current = false;
+        setRefreshKey((value) => value + 1);
+      }
+    }
+
+    window.addEventListener("pagehide", sendDeparture);
+    window.addEventListener("popstate", handleHistoryNavigation, true);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("pagehide", sendDeparture);
+      window.removeEventListener("popstate", handleHistoryNavigation, true);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [roomId]);
+
+  function handleHomeClick(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (!snapshot) return;
+    event.preventDefault();
+    if (!pending) void leaveToHome();
+  }
+
+  async function leaveToHome() {
+    if (departureSent.current) return;
+    departureSent.current = true;
+    setPending(true);
+    setNotice(null);
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/leave`, {
+        method: "POST",
+        keepalive: true,
+      });
+      if (!response.ok && response.status !== 401 && response.status !== 404) {
+        departureSent.current = false;
+        setNotice("action_failed");
+        return;
+      }
+      router.push("/");
+    } catch {
+      departureSent.current = false;
+      setNotice("action_failed");
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function joinRoom(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -223,7 +291,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
 
   return (
     <main className="app-frame room-frame">
-      <SiteHeader />
+      <SiteHeader onHomeClick={snapshot ? handleHomeClick : undefined} />
 
       {pageState === "loading" && (
         <div className="room-loading" role="status"><span className="loading-mark" />{t("connecting")}</div>
@@ -259,7 +327,9 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
       {pageState === "ready" && snapshot && (
         <>
           <div className="room-overline">
-            <Link className="back-link" href="/"><ArrowLeft size={15} />{t("home")}</Link>
+            <Link className="back-link" href="/" aria-disabled={pending} onClick={handleHomeClick}>
+              <ArrowLeft size={15} />{t("home")}
+            </Link>
             <span className="room-live"><span className="live-dot" />{t("joined")}</span>
           </div>
 

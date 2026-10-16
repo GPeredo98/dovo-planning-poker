@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import { Languages, Moon, Sun } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { useTranslation } from "@/lib/i18n/use-translation";
@@ -14,14 +15,18 @@ const localeNames: Record<Locale, string> = {
   pt: "Português",
 };
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  onHomeClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+};
+
+export function SiteHeader({ onHomeClick }: SiteHeaderProps) {
   const t = useTranslation();
   const { locale, theme, setLocale, setTheme } = usePreferences();
   const nextTheme = theme === "light" ? "dark" : "light";
 
   return (
     <header className="site-header backdrop-blur-md">
-      <Link className="wordmark" href="/" aria-label={`${t("appName")} home`}>
+      <Link className="wordmark" href="/" onClick={onHomeClick} aria-label={`${t("appName")} home`}>
         <span className="wordmark-symbol" aria-hidden="true">D</span>
         <span>{t("appName")}</span>
         <span className="wordmark-version"><span>v{packageJson.version}</span></span>

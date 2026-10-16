@@ -31,3 +31,15 @@ export function setGuestSessionCookie(response: NextResponse, roomId: string, cr
 
   return response;
 }
+
+export function clearGuestSessionCookie(response: NextResponse, roomId: string) {
+  response.cookies.set(cookieName(roomId), "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: `/api/rooms/${roomId}`,
+    maxAge: 0,
+  });
+
+  return response;
+}

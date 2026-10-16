@@ -10,7 +10,7 @@ Real-time Planning Poker for teams. Anyone can create or join a room without cre
 - When creating a room, the person chooses a name and receives a link and a code to invite the team.
 - Other people can join through the link or code and choose a name as well.
 - Votes update in real time. Cards remain hidden until the host reveals them.
-- The host can reveal or clear the cards, rename the room or topic, remove members, and transfer the host role.
+- The host can reveal or clear the cards, rename the room or topic, remove members, and transfer the host role. Leaving as host closes the room; other members are removed when they leave.
 - The interface will support English (the default language), Spanish, Arabic, and Portuguese. Arabic uses right-to-left (RTL) text direction.
 - Users can choose between light and dark themes.
 - The application plans to support Google AdSense without blocking voting controls.
@@ -50,7 +50,7 @@ Supabase is not configured in this scaffold yet. The planned environment variabl
 ## Supabase setup
 
 1. Create a Supabase project and copy its project URL, public anon key, and service-role key from the API settings into `.env.local`.
-2. Open the Supabase SQL Editor and run [`supabase/schema.sql`](supabase/schema.sql). It creates the room tables, rate limits, locked-down row-level security, and server-only RPC functions. Re-running it updates the room-code constraint to accept new six-character codes while preserving existing eight-character invitations.
+2. Open the Supabase SQL Editor and run [`supabase/schema.sql`](supabase/schema.sql). It creates the room tables, rate limits, locked-down row-level security, and server-only RPC functions. Re-running it updates the room-code constraint to accept new six-character codes while preserving existing eight-character invitations, and installs the `leave_room` operation used when a member exits. Re-run this script after future schema changes; it is designed to be rerunnable.
 3. No table publication setup is needed for this app's Realtime Broadcast channels. They carry room change notifications only; all reads and writes go through server routes. Do not enable Postgres Changes for these tables.
 4. In Supabase **Database → Extensions**, enable `pg_cron`, then run this once in the SQL Editor to remove rooms after their seven-day inactivity window:
 

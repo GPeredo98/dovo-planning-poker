@@ -364,6 +364,48 @@ begin
 end;
 $$;
 
+create or replace function public.leave_room(p_room_id uuid, p_credential_hash text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_room public.rooms%rowtype;
+  v_participant_id uuid;
+begin
+  select * into v_room
+  from public.rooms
+  where id = p_room_id
+  for update;
+
+  if not found then raise exception 'room_not_found'; end if;
+
+  select id into v_participant_id
+  from public.participants
+  where room_id = p_room_id
+    and credential_hash = p_credential_hash
+    and removed_at is null;
+
+  if not found then raise exception 'participant_not_found'; end if;
+
+  if v_participant_id = v_room.host_participant_id then
+    update public.rooms set host_participant_id = null where id = p_room_id;
+    delete from public.rooms where id = p_room_id;
+    return true;
+  end if;
+
+  delete from public.votes
+  where room_id = p_room_id and participant_id = v_participant_id;
+
+  update public.participants
+  set removed_at = now()
+  where id = v_participant_id;
+
+  return false;
+end;
+$$;
+
 create or replace function public.delete_expired_rooms()
 returns integer
 language plpgsql
@@ -386,6 +428,7 @@ revoke execute on function public.join_room(uuid, text, text, text) from public,
 revoke execute on function public.get_room_snapshot(uuid, text) from public, anon, authenticated;
 revoke execute on function public.submit_room_vote(uuid, text, text) from public, anon, authenticated;
 revoke execute on function public.perform_room_action(uuid, text, text, text, uuid) from public, anon, authenticated;
+revoke execute on function public.leave_room(uuid, text) from public, anon, authenticated;
 revoke execute on function public.delete_expired_rooms() from public, anon, authenticated;
 
 grant execute on function public.consume_rate_limit(text, text, integer, integer) to service_role;
@@ -394,4 +437,5 @@ grant execute on function public.join_room(uuid, text, text, text) to service_ro
 grant execute on function public.get_room_snapshot(uuid, text) to service_role;
 grant execute on function public.submit_room_vote(uuid, text, text) to service_role;
 grant execute on function public.perform_room_action(uuid, text, text, text, uuid) to service_role;
+grant execute on function public.leave_room(uuid, text) to service_role;
 grant execute on function public.delete_expired_rooms() to service_role;

@@ -67,7 +67,8 @@ This structure is a guide for implementation. Keep the existing App Router and a
 3. To join, a person opens the link or enters the code and provides a name.
 4. Members select a card for the current topic. Votes stay hidden until the host reveals the round.
 5. The host can reveal cards, clear votes to start another round, rename the room or topic, remove members, and transfer the host role.
-6. Clients receive updates through Realtime and fetch a snapshot from the server when joining or reconnecting.
+6. When a regular member leaves, the server removes their membership and active vote. When the host leaves, the server deletes the room and its members.
+7. Clients receive updates through Realtime and fetch a snapshot from the server when joining or reconnecting.
 
 ## Trust boundaries and permissions
 
@@ -77,7 +78,9 @@ Mutations go through server Route Handlers. The server validates the room, parti
 
 The browser can subscribe to the room's Realtime channel, but cannot directly change room state or assign itself the host role. The room identifier must be unpredictable, and Realtime messages must not include credentials. Data published to the channel must be limited to what members of that room are allowed to see. After a mutation, the client accepts the server-confirmed change; on reconnect, it fetches a snapshot to reconcile its state.
 
-A full page reload preserves the participant session through the HTTP-only cookie, so the host does not lose control when refreshing. When the browser session ends, the cookie expires; the person can rejoin through the room link or code as a new membership. A host who permanently leaves should transfer the role first. Define a recovery policy for unexpectedly abandoned hosts before production.
+A full page reload preserves the participant session through the HTTP-only cookie, so the host does not lose control when refreshing. When the browser session ends, the cookie expires; the person can rejoin through the room link or code as a new membership. A deliberate host departure closes the room for everyone; transfer the role before leaving only when the team should continue in the same room. If the browser cannot deliver the departure request, the room remains until the seven-day inactivity expiry.
+
+Leaving through the app calls a server-side leave operation before navigating home. `pagehide` sends the same operation as a best-effort beacon for tab closes and full-page navigation. The operation is idempotently scoped to the participant credential: regular members and their votes are removed, while a host departure deletes the room and cascades to its members and votes. Re-running `supabase/schema.sql` installs or replaces this function.
 
 ## Initial data model
 
@@ -134,6 +137,7 @@ Variables prefixed with `NEXT_PUBLIC_` are visible in the browser and must never
 ## Verification
 
 - Test room creation, joining by code and link, hidden votes, reveal, clearing, and all host actions.
+- Verify member departure removes their active vote and host departure closes the room for all members.
 - Verify that non-host participants cannot perform host actions, even by manipulating requests.
 - Test concurrent changes, reconnection, and snapshot refresh.
 - Validate all four languages, the English fallback, Arabic RTL, and both themes.
