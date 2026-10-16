@@ -158,6 +158,14 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.wordmark-version {
+  margin-inline-start: -5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 350;
+  line-height: 1;
+}
+
 .header-controls {
   display: flex;
   align-items: center;

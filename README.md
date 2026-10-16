@@ -31,6 +31,12 @@ npm run lint
 npm run build
 ```
 
+## Versioning and Vercel deployments
+
+The navbar reads its version from `package.json`. The GitHub Actions workflow in `.github/workflows/bump-version.yml` increments the patch version and commits both `package.json` and `package-lock.json` after a successful Vercel Production deployment from the default branch. Vercel's Git integration then deploys that version commit; the workflow ignores its own version-bump deployment to prevent a loop.
+
+This intentionally creates a follow-up Production deployment after each source deployment, so the deployed UI shows the newly committed version. For automatic commits to work, keep the Vercel Git integration connected to this repository and enable **Settings → Actions → General → Workflow permissions → Read and write permissions** in GitHub. Branch protection must also allow `github-actions[bot]` to push to the default branch.
+
 ## Planned stack
 
 - Next.js App Router, React, and TypeScript.

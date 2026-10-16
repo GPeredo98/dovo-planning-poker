@@ -1,0 +1,55 @@
+name: Bump version after production deployment
+
+on:
+  deployment_status:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: package-version-${{ github.event.repository.default_branch }}
+  cancel-in-progress: false
+
+jobs:
+  bump-version:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the production branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Bump patch version and commit
+        env:
+          DEPLOYED_SHA: ${{ github.event.deployment.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+
+          deployed_message="$(git show -s --format=%B "$DEPLOYED_SHA")"
+          if grep -Fq '[skip version bump]' <<< "$deployed_message"; then
+            echo "Skipping version-bump deployment commit."
+            exit 0
+          fi
+
+          if git log "origin/$DEFAULT_BRANCH" --format=%B | grep -Fq "Version-For: $DEPLOYED_SHA"; then
+            echo "This deployment already has a version commit."
+            exit 0
+          fi
+
+          npm version patch --no-git-tag-version
+          version="$(node -p 'require("./package.json").version')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: release v$version [skip version bump]" -m "Version-For: $DEPLOYED_SHA"
+          git push origin "HEAD:$DEFAULT_BRANCH"

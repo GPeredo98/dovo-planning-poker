@@ -5,6 +5,7 @@ import { Languages, Moon, Sun } from "lucide-react";
 import { usePreferences } from "@/components/preferences-provider";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import type { Locale } from "@/lib/room/types";
+import packageJson from "../../package.json";
 
 const localeNames: Record<Locale, string> = {
   en: "English",
@@ -23,6 +24,7 @@ export function SiteHeader() {
       <Link className="wordmark" href="/" aria-label={`${t("appName")} home`}>
         <span className="wordmark-symbol" aria-hidden="true">D</span>
         <span>{t("appName")}</span>
+        <span className="wordmark-version">v{packageJson.version}</span>
       </Link>
       <div className="header-controls">
         <label className="locale-select">
