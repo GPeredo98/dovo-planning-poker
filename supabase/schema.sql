@@ -211,7 +211,7 @@ begin
         'id', p.id,
         'name', p.name,
         'isHost', p.id = v_room.host_participant_id,
-        'hasVoted', v.id is not null,
+        'hasVoted', v.participant_id is not null,
         'vote', case when v_room.revealed then v.value else null end
       ) order by p.joined_at, p.id
     ),

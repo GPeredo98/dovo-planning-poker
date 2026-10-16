@@ -72,9 +72,16 @@ export async function notifyRoomChanged(roomId: string) {
   }
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+  return "";
+}
+
 export function publicDatabaseError(error: unknown) {
-  const message = error instanceof Error ? error.message : "";
-  const code = message.toLowerCase();
+  const code = getErrorMessage(error).toLowerCase();
 
   if (code.includes("supabase_not_configured")) {
     return { status: 503, error: "supabase_not_configured" };
