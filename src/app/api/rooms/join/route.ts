@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const roomId = typeof values.roomId === "string" && isRoomId(values.roomId) ? values.roomId : null;
     const roomCode = typeof values.roomCode === "string" ? values.roomCode.trim().toUpperCase() : null;
-    if (!roomId && (!roomCode || !/^[A-F0-9]{8}$/.test(roomCode))) {
+    if (!roomId && (!roomCode || !/^(?:[A-F0-9]{6}|[A-F0-9]{8})$/.test(roomCode))) {
       return NextResponse.json({ error: "invalid_room_code" }, { status: 400 });
     }
 

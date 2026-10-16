@@ -2,7 +2,7 @@ create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),
-  code text not null unique check (code ~ '^[A-F0-9]{8}$'),
+  code text not null unique check (code ~ '^[A-F0-9]{6}$' or code ~ '^[A-F0-9]{8}$'),
   name text not null check (char_length(name) between 1 and 48),
   topic text not null default 'Untitled topic' check (char_length(topic) between 1 and 80),
   host_participant_id uuid,
@@ -11,6 +11,13 @@ create table if not exists public.rooms (
   created_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '7 days')
 );
+
+alter table public.rooms
+  drop constraint if exists rooms_code_check;
+
+alter table public.rooms
+  add constraint rooms_code_check
+  check (code ~ '^[A-F0-9]{6}$' or code ~ '^[A-F0-9]{8}$');
 
 create table if not exists public.participants (
   id uuid primary key default gen_random_uuid(),
@@ -108,7 +115,7 @@ begin
   end if;
 
   loop
-    v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+    v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
     exit when not exists (select 1 from public.rooms where code = v_code);
   end loop;
 

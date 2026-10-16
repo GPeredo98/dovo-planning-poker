@@ -14,7 +14,7 @@ jobs:
   bump-version:
     if: >-
       github.event.deployment_status.state == 'success' &&
-      github.event.deployment_status.environment == 'Production'
+      github.event.deployment.environment == 'Production'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the production branch
