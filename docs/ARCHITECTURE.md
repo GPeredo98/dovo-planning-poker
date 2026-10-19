@@ -4,7 +4,7 @@
 
 This document defines the target architecture for Dovo Planning Poker. The current code is the initial Next.js scaffold; rooms, Supabase, internationalization, and advertising still need to be implemented.
 
-The application lets people create Planning Poker rooms and participate without an account. Supabase is the source of truth for rooms, and Supabase Realtime distributes updates. The browser stores only the language, theme, and chosen name in `localStorage`.
+The application lets people create Planning Poker rooms and participate without an account. Supabase is the source of truth for rooms, and Supabase Realtime distributes updates. The browser stores only the language, theme, chosen name, and optional avatar image link in `localStorage`.
 
 ## Stack
 
@@ -85,7 +85,7 @@ Leaving through the app calls a server-side leave operation before navigating ho
 ## Initial data model
 
 - `rooms`: identifier, unique code, name, topic, host participant, reveal state, timestamps, and expiration.
-- `participants`: identifier, room, display name, credential hash, connection state, and last activity.
+- `participants`: identifier, room, display name, optional avatar URL, credential hash, connection state, and last activity.
 - `votes`: room, round, participant, and card value; one vote per participant per round.
 
 Votes remain hidden in server responses until the round is revealed. Host transfer must be an atomic operation that validates the current host and target member. Removing a member invalidates their credential and removes or invalidates their vote in the active round.
@@ -116,7 +116,9 @@ All visible text must come from typed catalogs, not strings embedded in componen
 
 There will be only two themes: `light` and `dark`. Do not add an automatic system-preference mode.
 
-`localStorage` is limited to the locale, theme, and participant name. Validate stored values; use English, light theme, and an empty name as initial values. Do not store codes, invitation URLs, votes, room data, member identifiers, or credentials in `localStorage`.
+`localStorage` is limited to the locale, theme, participant name, and avatar image link (`dovo.avatar`). Validate stored values; use English, light theme, an empty name, and no avatar as initial values. Do not store codes, invitation URLs, votes, room data, member identifiers, or credentials in `localStorage`.
+
+An avatar is a user-supplied `https://` image link (max 500 characters, no embedded credentials) validated by `src/lib/room/avatar.ts` on the client and in the database. When a participant is in a room, the client syncs its stored link to `participants.avatar_url` through `POST /api/rooms/[roomId]/avatar`, so other members can see it. Images are loaded directly by each member's browser with `referrerPolicy="no-referrer"`, so the image host can see those members' IP addresses; the app never proxies or stores image content. A failed image falls back to the participant's initial.
 
 ## Advertising and privacy
 
@@ -141,5 +143,5 @@ Variables prefixed with `NEXT_PUBLIC_` are visible in the browser and must never
 - Verify that non-host participants cannot perform host actions, even by manipulating requests.
 - Test concurrent changes, reconnection, and snapshot refresh.
 - Validate all four languages, the English fallback, Arabic RTL, and both themes.
-- Confirm that `localStorage` contains nothing beyond language, theme, and name.
+- Confirm that `localStorage` contains nothing beyond language, theme, name, and avatar link.
 - Validate keyboard navigation, accessible control names, and ad legibility.

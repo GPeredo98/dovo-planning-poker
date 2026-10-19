@@ -78,6 +78,18 @@ const english = {
   showRoomCode: "Invite code",
   copy: "Copy",
   copiedShort: "Copied!",
+  votedLabel: "have chosen a card",
+  onlyHostReveals: "Only the host can reveal",
+  cardReady: "Card ready",
+  choosing: "Choosing…",
+  noVote: "No vote",
+  avatarEdit: "Change photo",
+  avatarTitle: "Your photo",
+  avatarLabel: "Image link",
+  avatarPlaceholder: "https://example.com/photo.jpg",
+  avatarHint: "Paste a link to an image. Everyone in the room will see it, and it stays on this device for next time.",
+  avatarInvalid: "Enter a valid https:// image link.",
+  avatarRemove: "Remove photo",
 } as const;
 
 export type MessageKey = keyof typeof english;
@@ -161,6 +173,18 @@ const spanish: Messages = {
   showRoomCode: "Código de invitación",
   copy: "Copiar",
   copiedShort: "¡Copiado!",
+  votedLabel: "ya eligieron su carta",
+  onlyHostReveals: "Solo el host puede revelar",
+  cardReady: "Carta lista",
+  choosing: "Eligiendo…",
+  noVote: "Sin voto",
+  avatarEdit: "Cambiar foto",
+  avatarTitle: "Tu foto",
+  avatarLabel: "Enlace de la imagen",
+  avatarPlaceholder: "https://ejemplo.com/foto.jpg",
+  avatarHint: "Pega el enlace de una imagen. Todos en la sala la verán y se guarda en este dispositivo para la próxima vez.",
+  avatarInvalid: "Ingresa un enlace de imagen válido con https://.",
+  avatarRemove: "Quitar foto",
 };
 
 const arabic: Messages = {
@@ -241,6 +265,18 @@ const arabic: Messages = {
   showRoomCode: "رمز الدعوة",
   copy: "نسخ",
   copiedShort: "تم النسخ!",
+  votedLabel: "اختاروا بطاقاتهم",
+  onlyHostReveals: "المضيف وحده يمكنه الكشف",
+  cardReady: "البطاقة جاهزة",
+  choosing: "يختار…",
+  noVote: "بلا تصويت",
+  avatarEdit: "تغيير الصورة",
+  avatarTitle: "صورتك",
+  avatarLabel: "رابط الصورة",
+  avatarPlaceholder: "https://example.com/photo.jpg",
+  avatarHint: "الصق رابط صورة. سيراها الجميع في الغرفة، وتبقى محفوظة على هذا الجهاز للمرة القادمة.",
+  avatarInvalid: "أدخل رابط صورة صالحًا يبدأ بـ https://.",
+  avatarRemove: "إزالة الصورة",
 };
 
 const portuguese: Messages = {
@@ -321,6 +357,18 @@ const portuguese: Messages = {
   showRoomCode: "Código de convite",
   copy: "Copiar",
   copiedShort: "Copiado!",
+  votedLabel: "já escolheram a carta",
+  onlyHostReveals: "Só o host pode revelar",
+  cardReady: "Carta pronta",
+  choosing: "Escolhendo…",
+  noVote: "Sem voto",
+  avatarEdit: "Alterar foto",
+  avatarTitle: "Sua foto",
+  avatarLabel: "Link da imagem",
+  avatarPlaceholder: "https://exemplo.com/foto.jpg",
+  avatarHint: "Cole o link de uma imagem. Todos na sala vão vê-la e ela fica salva neste dispositivo para a próxima vez.",
+  avatarInvalid: "Informe um link de imagem válido com https://.",
+  avatarRemove: "Remover foto",
 };
 
 export const messages: Record<Locale, Messages> = {

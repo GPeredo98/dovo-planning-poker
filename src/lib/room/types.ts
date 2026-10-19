@@ -4,6 +4,7 @@ export type Theme = "light" | "dark";
 export type RoomMember = {
   id: string;
   name: string;
+  avatarUrl: string | null;
   isHost: boolean;
   hasVoted: boolean;
   vote: string | null;

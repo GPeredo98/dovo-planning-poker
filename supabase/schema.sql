@@ -29,6 +29,16 @@ create table if not exists public.participants (
   removed_at timestamptz
 );
 
+alter table public.participants
+  add column if not exists avatar_url text;
+
+alter table public.participants
+  drop constraint if exists participants_avatar_url_check;
+
+alter table public.participants
+  add constraint participants_avatar_url_check
+  check (avatar_url is null or (char_length(avatar_url) <= 500 and avatar_url ~ '^https://[^[:space:]]+$'));
+
 alter table public.rooms
   drop constraint if exists rooms_host_participant_id_fkey;
 
@@ -217,6 +227,7 @@ begin
       jsonb_build_object(
         'id', p.id,
         'name', p.name,
+        'avatarUrl', p.avatar_url,
         'isHost', p.id = v_room.host_participant_id,
         'hasVoted', v.participant_id is not null,
         'vote', case when v_room.revealed then v.value else null end
@@ -287,6 +298,40 @@ begin
   do update set value = excluded.value, updated_at = now();
 
   update public.rooms set expires_at = now() + interval '7 days' where id = p_room_id;
+  return true;
+end;
+$$;
+
+create or replace function public.set_participant_avatar(
+  p_room_id uuid,
+  p_credential_hash text,
+  p_avatar_url text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_room public.rooms%rowtype;
+  v_avatar text;
+begin
+  select * into v_room from public.rooms where id = p_room_id;
+  if not found then raise exception 'room_not_found'; end if;
+  if v_room.expires_at <= now() then raise exception 'room_expired'; end if;
+
+  v_avatar := nullif(btrim(coalesce(p_avatar_url, '')), '');
+  if v_avatar is not null and (char_length(v_avatar) > 500 or v_avatar !~ '^https://[^[:space:]]+$') then
+    raise exception 'invalid_avatar';
+  end if;
+
+  update public.participants
+  set avatar_url = v_avatar
+  where room_id = p_room_id
+    and credential_hash = p_credential_hash
+    and removed_at is null;
+  if not found then raise exception 'participant_not_found'; end if;
+
   return true;
 end;
 $$;
@@ -427,6 +472,7 @@ revoke execute on function public.create_room(text, text, text) from public, ano
 revoke execute on function public.join_room(uuid, text, text, text) from public, anon, authenticated;
 revoke execute on function public.get_room_snapshot(uuid, text) from public, anon, authenticated;
 revoke execute on function public.submit_room_vote(uuid, text, text) from public, anon, authenticated;
+revoke execute on function public.set_participant_avatar(uuid, text, text) from public, anon, authenticated;
 revoke execute on function public.perform_room_action(uuid, text, text, text, uuid) from public, anon, authenticated;
 revoke execute on function public.leave_room(uuid, text) from public, anon, authenticated;
 revoke execute on function public.delete_expired_rooms() from public, anon, authenticated;
@@ -436,6 +482,7 @@ grant execute on function public.create_room(text, text, text) to service_role;
 grant execute on function public.join_room(uuid, text, text, text) to service_role;
 grant execute on function public.get_room_snapshot(uuid, text) to service_role;
 grant execute on function public.submit_room_vote(uuid, text, text) to service_role;
+grant execute on function public.set_participant_avatar(uuid, text, text) to service_role;
 grant execute on function public.perform_room_action(uuid, text, text, text, uuid) to service_role;
 grant execute on function public.leave_room(uuid, text) to service_role;
 grant execute on function public.delete_expired_rooms() to service_role;

@@ -57,7 +57,8 @@ Prefer thin borders and small, soft shadows over heavy elevation. Use rounded co
 ## Product surfaces
 
 - **Home:** keep Create room and Join room as the two obvious paths. On wider screens, show the two lightly glazed panels side by side; stack them on narrow screens.
-- **Room:** keep the room/topic heading, invite actions, round status, vote deck, and member list easy to scan. The host's next action is visually prominent without overpowering the selected card.
+- **Room:** the participants are the focus. The topic and round state sit centered above a table of seats; each seat shows the participant's avatar (image link or initial), name, host badge, a state line ("Choosing" / "Card ready"), and a card above their head. Cards stay face down until the host reveals, then flip with a short staggered 3D animation. Below the table, a dock holds the vote progress, the host's reveal/new-round button, and a compact deck for the viewer's own card. On mobile the seats become rows with the card at the end and the dock sticks to the bottom of the screen.
+- **Avatars:** clicking one's own avatar opens a dialog to paste an image link. Tints for the fallback figure derive from the participant identifier.
 - **Voting cards:** use stable dimensions and a clear selected state. Hidden votes show only whether a participant has voted; never expose values before reveal.
 - **Advertising:** reserve a quiet, labeled placement outside the primary control path. Ads must not cover or shift voting controls.
 

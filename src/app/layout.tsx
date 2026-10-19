@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Dovo Planning Poker",
   description: "Estimate work together in real time. Create or join a Planning Poker room without an account.",
+  other: {
+    "google-adsense-account": "ca-pub-2623200353156137",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

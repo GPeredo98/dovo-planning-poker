@@ -2,20 +2,24 @@
 
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { Locale, Theme } from "@/lib/room/types";
+import { normalizeAvatarUrl } from "@/lib/room/avatar";
 
 const preferenceKeys = {
   locale: "dovo.locale",
   theme: "dovo.theme",
   name: "dovo.name",
+  avatar: "dovo.avatar",
 } as const;
 
 export type Preferences = {
   locale: Locale;
   theme: Theme;
   name: string;
+  avatar: string;
   setLocale: (locale: Locale) => void;
   setTheme: (theme: Theme) => void;
   setName: (name: string) => void;
+  setAvatar: (avatar: string) => void;
 };
 
 const PreferencesContext = createContext<Preferences | null>(null);
@@ -60,6 +64,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     () => window.localStorage.getItem(preferenceKeys.name)?.slice(0, 32) ?? "",
     () => "",
   );
+  const avatar = useSyncExternalStore(
+    subscribeToPreferences,
+    () => normalizeAvatarUrl(window.localStorage.getItem(preferenceKeys.avatar) ?? "") ?? "",
+    () => "",
+  );
 
   function storePreference(key: string, value: string) {
     window.localStorage.setItem(key, value);
@@ -78,6 +87,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     storePreference(preferenceKeys.name, value.slice(0, 32));
   }
 
+  function updateAvatar(value: string) {
+    storePreference(preferenceKeys.avatar, normalizeAvatarUrl(value) ?? "");
+  }
+
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
@@ -85,7 +98,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [locale, theme]);
 
   return (
-    <PreferencesContext.Provider value={{ locale, theme, name, setLocale: updateLocale, setTheme: updateTheme, setName: updateName }}>
+    <PreferencesContext.Provider value={{ locale, theme, name, avatar, setLocale: updateLocale, setTheme: updateTheme, setName: updateName, setAvatar: updateAvatar }}>
       {children}
     </PreferencesContext.Provider>
   );

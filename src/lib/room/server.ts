@@ -94,5 +94,6 @@ export function publicDatabaseError(error: unknown) {
   if (code.includes("invalid_vote")) return { status: 400, error: "invalid_vote" };
   if (code.includes("target_not_found")) return { status: 404, error: "target_not_found" };
   if (code.includes("invalid_room_name")) return { status: 400, error: "invalid_room_name" };
+  if (code.includes("invalid_avatar")) return { status: 400, error: "invalid_avatar" };
   return { status: 500, error: "action_failed" };
 }

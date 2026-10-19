@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  Camera,
   Check,
   Copy,
   Crown,
@@ -13,15 +14,16 @@ import {
   Pencil,
   RotateCcw,
   ShieldCheck,
+  Trash2,
   UserMinus,
-  UsersRound,
 } from "lucide-react";
 import { AdSlot } from "@/components/adsense";
 import { SiteHeader } from "@/components/site-header";
 import { usePreferences } from "@/components/preferences-provider";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { normalizeAvatarUrl } from "@/lib/room/avatar";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
-import { VOTE_CARDS, type RoomSnapshot, type VoteValue } from "@/lib/room/types";
+import { VOTE_CARDS, type RoomMember, type RoomSnapshot, type VoteValue } from "@/lib/room/types";
 
 type RoomScreenProps = {
   roomId: string;
@@ -33,19 +35,44 @@ function initials(name: string) {
   return Array.from(name.trim())[0]?.toLocaleUpperCase() ?? "?";
 }
 
+function hueFor(id: string) {
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) % 360;
+  return hash;
+}
+
+function SeatFigure({ member }: { member: RoomMember }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const url = member.avatarUrl;
+
+  return (
+    <span className={`seat-figure${member.isHost ? " is-host" : ""}`} aria-hidden="true">
+      <span className="seat-shoulders" />
+      <span className="seat-avatar">
+        {url && failedUrl !== url ? (
+          // User-supplied remote image; next/image would need an allowlist of every host.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={url} alt="" referrerPolicy="no-referrer" loading="lazy" decoding="async" onError={() => setFailedUrl(url)} />
+        ) : initials(member.name)}
+      </span>
+    </span>
+  );
+}
+
 function errorMessage(code: string | undefined, t: ReturnType<typeof useTranslation>) {
   if (code === "supabase_not_configured") return t("configurationMissing");
   if (code === "room_expired") return t("roomExpired");
   if (code === "room_not_found") return t("roomNotFound");
   if (code === "session_invalid") return t("sessionExpired");
   if (code === "enter_name" || code === "invalid_name") return t("enterName");
+  if (code === "invalid_avatar") return t("avatarInvalid");
   return t("actionFailed");
 }
 
 export function RoomScreen({ roomId }: RoomScreenProps) {
   const router = useRouter();
   const t = useTranslation();
-  const { locale, name, setName } = usePreferences();
+  const { locale, name, setName, avatar, setAvatar } = usePreferences();
   const [pageState, setPageState] = useState<PageState>("loading");
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -55,9 +82,15 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   const [selectedVote, setSelectedVote] = useState<string | null>(null);
   const [editingRoom, setEditingRoom] = useState(false);
   const [editingTopic, setEditingTopic] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState(false);
+  const [avatarDraft, setAvatarDraft] = useState("");
+  const [avatarInvalid, setAvatarInvalid] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [topicDraft, setTopicDraft] = useState("");
   const departureSent = useRef(false);
+  const syncedAvatar = useRef<string | null>(null);
+  const inRoom = pageState === "ready" && snapshot !== null;
+  const serverAvatar = snapshot?.members.find((member) => member.id === snapshot.currentParticipantId)?.avatarUrl ?? "";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -123,6 +156,26 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
       if (client && channel) void client.removeChannel(channel);
     };
   }, [roomId]);
+
+  useEffect(() => {
+    if (!inRoom) return;
+    if (serverAvatar === avatar) {
+      syncedAvatar.current = avatar;
+      return;
+    }
+    if (syncedAvatar.current === avatar) return;
+    syncedAvatar.current = avatar;
+
+    fetch(`/api/rooms/${roomId}/avatar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ avatarUrl: avatar }),
+    }).then((response) => {
+      if (response.ok) setRefreshKey((value) => value + 1);
+    }).catch(() => {
+      syncedAvatar.current = null;
+    });
+  }, [roomId, inRoom, avatar, serverAvatar]);
 
   useEffect(() => {
     const roomPath = `/room/${roomId}`;
@@ -280,8 +333,32 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
     }
   }
 
+  function openAvatarEditor() {
+    setAvatarDraft(avatar);
+    setAvatarInvalid(false);
+    setEditingAvatar(true);
+  }
+
+  function saveAvatar(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalized = normalizeAvatarUrl(avatarDraft);
+    if (normalized === null) {
+      setAvatarInvalid(true);
+      return;
+    }
+    setAvatar(normalized);
+    setEditingAvatar(false);
+  }
+
+  function removeAvatar() {
+    setAvatar("");
+    setEditingAvatar(false);
+  }
+
   const isHost = snapshot?.room.hostParticipantId === snapshot?.currentParticipantId;
   const voteCount = snapshot?.members.filter((member) => member.hasVoted).length ?? 0;
+  const memberTotal = snapshot?.members.length ?? 0;
+  const progress = memberTotal ? Math.round((voteCount / memberTotal) * 100) : 0;
   const average = snapshot?.room.revealed
     ? snapshot.members.map((member) => member.vote).filter((vote): vote is string => vote !== null && vote !== "?").map(Number).filter(Number.isFinite)
     : [];
@@ -359,34 +436,6 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                   </button>
                 )}
               </div>
-              <div className="room-topic-row">
-                <span className="topic-label">{t("topic")}</span>
-                {editingTopic && isHost ? (
-                  <form className="inline-edit topic-edit" onSubmit={(event) => {
-                    event.preventDefault();
-                    void sendAction("rename_topic", topicDraft).then((saved) => { if (saved) setEditingTopic(false); });
-                  }}>
-                    <input
-                      className="topic-input"
-                      value={topicDraft}
-                      maxLength={80}
-                      onChange={(event) => setTopicDraft(event.target.value)}
-                      placeholder={t("topicPlaceholder")}
-                      aria-label={t("topic")}
-                    />
-                    <button className="small-action-button" type="submit" disabled={pending} aria-label={t("save")}><Check size={16} /></button>
-                  </form>
-                ) : (
-                  <>
-                    <span className="topic-value">{snapshot.room.topic}</span>
-                    {isHost && (
-                      <button className="icon-button tiny-icon" type="button" onClick={() => setEditingTopic(true)} title={t("renameTopic")} aria-label={t("renameTopic")}>
-                        <Pencil size={13} />
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
             </div>
 
             <div className="invite-controls">
@@ -401,52 +450,139 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
             </div>
           </section>
 
-          <section className="round-strip backdrop-blur-md" aria-live="polite">
-            <div className="round-label"><span className="round-number">{String(snapshot.room.round).padStart(2, "0")}</span><span>{t("currentRound")}</span></div>
-            <span className={`round-state ${snapshot.room.revealed ? "is-revealed" : ""}`}>
-              <span className="round-state-dot" />{snapshot.room.revealed ? t("revealed") : t("voting")}
+          <section className="topic-hero" aria-live="polite">
+            <span className="topic-kicker">
+              <span className={`round-state-dot${snapshot.room.revealed ? " is-revealed" : ""}`} />
+              {t("currentRound")} {String(snapshot.room.round).padStart(2, "0")} · {snapshot.room.revealed ? t("revealed") : t("voting")}
             </span>
-            <span className="round-vote-count">{voteCount}/{snapshot.members.length} {t("membersCount")}</span>
+            {editingTopic && isHost ? (
+              <form className="inline-edit topic-edit" onSubmit={(event) => {
+                event.preventDefault();
+                void sendAction("rename_topic", topicDraft).then((saved) => { if (saved) setEditingTopic(false); });
+              }}>
+                <input
+                  className="topic-input"
+                  value={topicDraft}
+                  maxLength={80}
+                  onChange={(event) => setTopicDraft(event.target.value)}
+                  placeholder={t("topicPlaceholder")}
+                  aria-label={t("topic")}
+                />
+                <button className="small-action-button" type="submit" disabled={pending} aria-label={t("save")}><Check size={16} /></button>
+              </form>
+            ) : (
+              <div className="topic-title-row">
+                <h2 className="topic-title">{snapshot.room.topic}</h2>
+                {isHost && (
+                  <button className="icon-button tiny-icon" type="button" onClick={() => setEditingTopic(true)} title={t("renameTopic")} aria-label={t("renameTopic")}>
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            )}
           </section>
 
-          <div className="room-content-grid">
-            <section className="voting-stage">
-              <div className="stage-heading">
-                <div>
-                  <span className="stage-kicker">{t("vote")}</span>
-                  <h2>{snapshot.room.revealed ? t("revealed") : t("selectCard")}</h2>
-                </div>
-                {isHost && (
-                  <div className="host-controls">
-                    {!snapshot.room.revealed ? (
-                      <button className="primary-button host-primary" type="button" disabled={pending || voteCount === 0} onClick={() => void sendAction("reveal")}>
-                        <Eye size={16} /><span>{t("revealVotes")}</span>
-                      </button>
-                    ) : (
-                      <button className="primary-button host-primary" type="button" disabled={pending} onClick={() => void sendAction("clear")}>
-                        <RotateCcw size={16} /><span>{t("clearVotes")}</span>
-                      </button>
-                    )}
+          <div className="room-stage">
+            <section className={`table-panel${snapshot.room.revealed ? " is-revealed" : ""}`} aria-label={t("members")}>
+              <div className="seat-list">
+                {snapshot.members.map((member, index) => {
+                  const isMe = member.id === snapshot.currentParticipantId;
+                  const stateText = snapshot.room.revealed
+                    ? member.hasVoted ? t("voteRecorded") : t("noVote")
+                    : member.hasVoted ? t("cardReady") : t("choosing");
+
+                  return (
+                    <div
+                      className={`seat${member.hasVoted ? " has-voted" : ""}${isMe ? " is-me" : ""}`}
+                      key={member.id}
+                      style={{ "--seat-index": index, "--seat-hue": hueFor(member.id) } as React.CSSProperties}
+                    >
+                      <div className="seat-card-slot">
+                        {member.hasVoted ? (
+                          <div className="seat-card">
+                            <span className="seat-card-face seat-card-back" aria-hidden="true">◆</span>
+                            <span className="seat-card-face seat-card-front">{member.vote}</span>
+                          </div>
+                        ) : (
+                          <div className="seat-card-empty" aria-hidden="true" />
+                        )}
+                      </div>
+                      {isMe ? (
+                        <button className="seat-figure-button" type="button" onClick={openAvatarEditor} title={t("avatarEdit")} aria-label={t("avatarEdit")}>
+                          <SeatFigure member={member} />
+                          <span className="seat-camera" aria-hidden="true"><Camera size={11} /></span>
+                        </button>
+                      ) : (
+                        <SeatFigure member={member} />
+                      )}
+                      <span className="seat-name">
+                        <span className="seat-name-text">{isMe ? t("you") : member.name}</span>
+                        {member.isHost && <span className="seat-host"><Crown size={10} />{t("host")}</span>}
+                      </span>
+                      <span className={`seat-state${member.hasVoted ? " is-ready" : ""}`}>{stateText}</span>
+                      {isHost && !isMe && (
+                        <span className="seat-actions">
+                          <button
+                            className="icon-button tiny-icon"
+                            type="button"
+                            title={t("makeHost")}
+                            aria-label={`${t("makeHost")}: ${member.name}`}
+                            disabled={pending}
+                            onClick={() => void sendAction("transfer_host", undefined, member.id)}
+                          ><Crown size={14} /></button>
+                          <button
+                            className="icon-button tiny-icon remove-icon"
+                            type="button"
+                            title={t("removeMember")}
+                            aria-label={`${t("removeMember")}: ${member.name}`}
+                            disabled={pending}
+                            onClick={() => {
+                              if (window.confirm(t("confirmRemove"))) void sendAction("remove_member", undefined, member.id);
+                            }}
+                          ><UserMinus size={14} /></button>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="vote-dock backdrop-blur-md">
+              <div className="dock-status">
+                <div className="dock-progress">
+                  <span className="dock-progress-text"><strong>{voteCount}</strong> / {memberTotal} {t("votedLabel")}</span>
+                  <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={memberTotal} aria-valuenow={voteCount}>
+                    <span style={{ width: `${progress}%` }} />
                   </div>
+                </div>
+                {isHost ? (
+                  !snapshot.room.revealed ? (
+                    <button className="primary-button host-primary" type="button" disabled={pending || voteCount === 0} onClick={() => void sendAction("reveal")}>
+                      <Eye size={16} /><span>{t("revealVotes")}</span>
+                    </button>
+                  ) : (
+                    <button className="primary-button host-primary" type="button" disabled={pending} onClick={() => void sendAction("clear")}>
+                      <RotateCcw size={16} /><span>{t("clearVotes")}</span>
+                    </button>
+                  )
+                ) : (
+                  !snapshot.room.revealed && <span className="dock-hint"><EyeOff size={14} />{t("onlyHostReveals")}</span>
                 )}
               </div>
 
               {snapshot.room.revealed ? (
-                <div className="revealed-results">
-                  {snapshot.members.map((member, index) => (
-                    <div className="result-tile backdrop-blur-md" key={member.id} style={{ "--tile-index": index } as React.CSSProperties}>
-                      <span className="result-name">{member.id === snapshot.currentParticipantId ? t("you") : member.name}</span>
-                      <strong>{member.vote ?? "–"}</strong>
-                    </div>
-                  ))}
-                  {averageValue && <div className="average-readout"><span>{t("average")}</span><strong>{averageValue}</strong></div>}
-                </div>
+                averageValue && <div className="average-readout"><span>{t("average")}</span><strong>{averageValue}</strong></div>
               ) : (
-                <>
+                <div className="dock-deck">
+                  <div className="dock-deck-heading">
+                    <strong>{t("selectCard")}</strong>
+                    <span>{t("votesHidden")}</span>
+                  </div>
                   <div className="vote-deck" role="group" aria-label={t("selectCard")}>
                     {VOTE_CARDS.map((card, index) => (
                       <button
-                        className={`vote-card backdrop-blur-md${selectedVote === card ? " is-selected" : ""}`}
+                        className={`vote-card${selectedVote === card ? " is-selected" : ""}`}
                         key={card}
                         type="button"
                         disabled={pending}
@@ -455,63 +591,56 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                         style={{ "--card-index": index } as React.CSSProperties}
                       >
                         <span className="card-value">{card}</span>
-                        <span className="card-mark" aria-hidden="true">{selectedVote === card ? <Check size={14} /> : ""}</span>
                       </button>
                     ))}
                   </div>
-                  <p className="vote-privacy"><EyeOff size={14} />{t("votesHidden")}</p>
-                </>
+                </div>
               )}
 
               {notice && <p className="inline-notice" role="status">{errorMessage(notice, t)}</p>}
             </section>
-
-            <aside className="member-rail">
-              <div className="member-rail-heading">
-                <div><span className="stage-kicker">{t("members")}</span><strong>{snapshot.members.length}</strong></div>
-                <UsersRound size={17} aria-hidden="true" />
-              </div>
-              <div className="member-list">
-                {snapshot.members.map((member) => (
-                  <div className="member-row" key={member.id}>
-                    <span className={`member-avatar${member.isHost ? " is-host" : ""}`}>{initials(member.name)}</span>
-                    <span className="member-name-wrap">
-                      <span className="member-name">{member.id === snapshot.currentParticipantId ? t("you") : member.name}</span>
-                      {member.isHost && <span className="member-role"><Crown size={11} />{t("host")}</span>}
-                    </span>
-                    <span className={`member-vote-state${member.hasVoted ? " has-voted" : ""}`} aria-label={member.hasVoted ? t("voteRecorded") : t("waitingForVotes")}>
-                      {snapshot.room.revealed ? member.vote ?? "–" : member.hasVoted ? <Check size={14} /> : <span />}
-                    </span>
-                    {isHost && member.id !== snapshot.currentParticipantId && (
-                      <span className="member-actions">
-                        <button
-                          className="icon-button tiny-icon"
-                          type="button"
-                          title={t("makeHost")}
-                          aria-label={`${t("makeHost")}: ${member.name}`}
-                          disabled={pending}
-                          onClick={() => void sendAction("transfer_host", undefined, member.id)}
-                        ><Crown size={14} /></button>
-                        <button
-                          className="icon-button tiny-icon remove-icon"
-                          type="button"
-                          title={t("removeMember")}
-                          aria-label={`${t("removeMember")}: ${member.name}`}
-                          disabled={pending}
-                          onClick={() => {
-                            if (window.confirm(t("confirmRemove"))) void sendAction("remove_member", undefined, member.id);
-                          }}
-                        ><UserMinus size={14} /></button>
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {!snapshot.room.revealed && (
-                <div className="member-rail-footnote"><EyeOff size={14} />{t("waitingHost")}</div>
-              )}
-            </aside>
           </div>
+
+          {editingAvatar && (
+            <div className="modal-backdrop" onClick={() => setEditingAvatar(false)}>
+              <form
+                className="avatar-dialog backdrop-blur-md"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="avatar-dialog-title"
+                noValidate
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => { if (event.key === "Escape") setEditingAvatar(false); }}
+                onSubmit={saveAvatar}
+              >
+                <h2 id="avatar-dialog-title">{t("avatarTitle")}</h2>
+                <label className="field-label" htmlFor="avatar-url">{t("avatarLabel")}</label>
+                <input
+                  id="avatar-url"
+                  className="text-field"
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  autoFocus
+                  maxLength={500}
+                  value={avatarDraft}
+                  placeholder={t("avatarPlaceholder")}
+                  onChange={(event) => { setAvatarDraft(event.target.value); setAvatarInvalid(false); }}
+                />
+                <p className="avatar-hint">{t("avatarHint")}</p>
+                {avatarInvalid && <p className="inline-notice" role="alert">{t("avatarInvalid")}</p>}
+                <div className="avatar-dialog-actions">
+                  {avatar && (
+                    <button className="secondary-button" type="button" onClick={removeAvatar}>
+                      <Trash2 size={15} /><span>{t("avatarRemove")}</span>
+                    </button>
+                  )}
+                  <button className="secondary-button" type="button" onClick={() => setEditingAvatar(false)}>{t("cancel")}</button>
+                  <button className="primary-button" type="submit">{t("save")}</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           <footer className="room-footer">
             <span>{t("roomCode")}: <code>{snapshot.room.code}</code></span>
