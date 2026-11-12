@@ -13,6 +13,7 @@ Real-time Planning Poker for teams. Anyone can create or join a room without cre
 - The host can reveal or clear the cards, rename the room or topic, remove members, and transfer the host role. Leaving as host closes the room; other members are removed when they leave.
 - The host can choose Fibonacci, 0–10, or T-shirt voting scales and allow participants to adjust a revealed vote one step above or below their original card. The reaction setting is reserved for a future release.
 - Room settings changed after reveal apply in the next round; changing the scale before reveal clears existing votes. The host's last saved settings are reused when creating a room on the same device.
+- New hosts default to Fibonacci with both vote changes and the future reactions option enabled. Reactions are not implemented yet.
 - The interface will support English (the default language), Spanish, Arabic, and Portuguese. Arabic uses right-to-left (RTL) text direction.
 - Users can choose between light and dark themes.
 - The application plans to support Google AdSense without blocking voting controls.
@@ -78,7 +79,7 @@ Ad slots remain hidden until both the publisher and slot IDs are configured. The
 
 ## Local data and privacy
 
-No account is required. `localStorage` contains only the language (`en`, `es`, `ar`, or `pt`), theme (`light` or `dark`), name, optional avatar link, and host's preferred room settings. English is the initial language. Votes and active room state live in Supabase, not in `localStorage`.
+No account is required. `localStorage` contains only the language (`pp.locale`), theme (`pp.theme`), name (`pp.name`), optional avatar link (`pp.avatar`), and host's preferred room settings (`pp.roomSettings`). Existing `dovo.*` preferences migrate to the new keys; existing `pp.*` values take precedence. English is the initial language. Votes and active room state live in Supabase, not in `localStorage`.
 
 Names are visible to people in the room. The retention policy for rooms and participants must be defined before deployment.
 

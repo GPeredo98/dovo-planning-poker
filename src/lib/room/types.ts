@@ -25,8 +25,8 @@ export type RoomSettings = {
 };
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
-  allowVoteChanges: false,
-  allowReactions: false,
+  allowVoteChanges: true,
+  allowReactions: true,
   voteScale: "fibonacci",
 };
 

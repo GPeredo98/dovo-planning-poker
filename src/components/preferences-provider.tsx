@@ -3,13 +3,7 @@
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import type { Locale, Theme } from "@/lib/room/types";
 import { normalizeAvatarUrl } from "@/lib/room/avatar";
-
-const preferenceKeys = {
-  locale: "dovo.locale",
-  theme: "dovo.theme",
-  name: "dovo.name",
-  avatar: "dovo.avatar",
-} as const;
+import { migratePreferences, preferenceKeys, readPreference } from "@/lib/preferences-storage";
 
 export type Preferences = {
   locale: Locale;
@@ -46,7 +40,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const locale = useSyncExternalStore<Locale>(
     subscribeToPreferences,
     () => {
-      const stored = window.localStorage.getItem(preferenceKeys.locale);
+      const stored = readPreference("locale");
       return isLocale(stored) ? stored : "en";
     },
     () => "en",
@@ -54,19 +48,19 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const theme = useSyncExternalStore<Theme>(
     subscribeToPreferences,
     () => {
-      const stored = window.localStorage.getItem(preferenceKeys.theme);
+      const stored = readPreference("theme");
       return isTheme(stored) ? stored : "light";
     },
     () => "light",
   );
   const name = useSyncExternalStore(
     subscribeToPreferences,
-    () => window.localStorage.getItem(preferenceKeys.name)?.slice(0, 32) ?? "",
+    () => readPreference("name")?.slice(0, 32) ?? "",
     () => "",
   );
   const avatar = useSyncExternalStore(
     subscribeToPreferences,
-    () => normalizeAvatarUrl(window.localStorage.getItem(preferenceKeys.avatar) ?? "") ?? "",
+    () => normalizeAvatarUrl(readPreference("avatar") ?? "") ?? "",
     () => "",
   );
 
@@ -90,6 +84,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   function updateAvatar(value: string) {
     storePreference(preferenceKeys.avatar, normalizeAvatarUrl(value) ?? "");
   }
+
+  useEffect(() => {
+    migratePreferences();
+    window.dispatchEvent(new Event(preferenceChangedEvent));
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;

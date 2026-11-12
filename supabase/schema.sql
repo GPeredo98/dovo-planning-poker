@@ -17,6 +17,10 @@ alter table public.rooms
   add column if not exists round_settings jsonb not null default '{"allowVoteChanges":false,"allowReactions":false,"voteScale":"fibonacci"}'::jsonb;
 
 alter table public.rooms
+  alter column settings set default '{"allowVoteChanges":true,"allowReactions":true,"voteScale":"fibonacci"}'::jsonb,
+  alter column round_settings set default '{"allowVoteChanges":true,"allowReactions":true,"voteScale":"fibonacci"}'::jsonb;
+
+alter table public.rooms
   drop constraint if exists rooms_code_check;
 
 alter table public.rooms

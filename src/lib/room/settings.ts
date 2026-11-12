@@ -1,9 +1,8 @@
 import { DEFAULT_ROOM_SETTINGS, isRoomSettings, type RoomSettings } from "@/lib/room/types";
-
-const storageKey = "dovo.roomSettings";
+import { preferenceKeys, readPreference } from "@/lib/preferences-storage";
 
 export function readRoomSettings(): RoomSettings {
-  const stored = window.localStorage.getItem(storageKey);
+  const stored = readPreference("roomSettings");
   if (!stored) return DEFAULT_ROOM_SETTINGS;
   try {
     const parsed: unknown = JSON.parse(stored);
@@ -15,5 +14,5 @@ export function readRoomSettings(): RoomSettings {
 }
 
 export function saveRoomSettings(settings: RoomSettings) {
-  window.localStorage.setItem(storageKey, JSON.stringify(settings));
+  window.localStorage.setItem(preferenceKeys.roomSettings, JSON.stringify(settings));
 }

@@ -10,6 +10,18 @@ declare
   snapshot jsonb;
   host_member jsonb;
 begin
+  insert into public.rooms (code, name, topic)
+  values ('ABC123', 'Default settings test', 'Topic')
+  returning id into v_room_id;
+  if exists (
+    select 1 from public.rooms r
+    where r.id = v_room_id and (
+      r.settings <> '{"allowVoteChanges":true,"allowReactions":true,"voteScale":"fibonacci"}'::jsonb
+      or r.round_settings <> '{"allowVoteChanges":true,"allowReactions":true,"voteScale":"fibonacci"}'::jsonb
+    )
+  ) then raise exception 'incorrect room defaults'; end if;
+  delete from public.rooms where id = v_room_id;
+
   v_room_id := (public.create_room('Host', 'Topic', 'host-test', settings)->>'roomId')::uuid;
   perform public.join_room(v_room_id, null, 'Guest', 'guest-test');
   perform public.submit_room_vote(v_room_id, 'host-test', '3');
