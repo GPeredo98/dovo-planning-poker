@@ -46,6 +46,41 @@ function hueFor(id: string) {
   return hash;
 }
 
+function SeatCard({ vote, revealed, round, scale }: {
+  vote: string | null;
+  revealed: boolean;
+  round: number;
+  scale: RoomSnapshot["room"]["roundSettings"]["voteScale"];
+}) {
+  const front = useRef<HTMLSpanElement>(null);
+  const previous = useRef({ vote, revealed, round });
+
+  useEffect(() => {
+    const last = previous.current;
+    previous.current = { vote, revealed, round };
+    if (!revealed || !last.revealed || round !== last.round || vote === null || last.vote === null || vote === last.vote) return;
+
+    const cards: readonly string[] = VOTE_SCALES[scale];
+    const previousIndex = cards.indexOf(last.vote);
+    const currentIndex = cards.indexOf(vote);
+    if (previousIndex < 0 || currentIndex < 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const offset = currentIndex > previousIndex ? 14 : -14;
+    const animation = front.current?.animate([
+      { opacity: 0, transform: `rotateY(180deg) translateY(${offset}px) scale(0.85)` },
+      { opacity: 1, transform: "rotateY(180deg) translateY(0) scale(1)" },
+    ], { duration: 420, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" });
+    return () => animation?.cancel();
+  }, [vote, revealed, round, scale]);
+
+  return (
+    <div className="seat-card">
+      <span className="seat-card-face seat-card-back" aria-hidden="true">◆</span>
+      <span ref={front} className="seat-card-face seat-card-front">{vote}</span>
+    </div>
+  );
+}
+
 function SeatFigure({ member }: { member: RoomMember }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const url = member.avatarUrl;
@@ -558,10 +593,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                       <div className="seat-card-slot">
                         {member.hasVoted ? (
                           <>
-                            <div className="seat-card">
-                              <span className="seat-card-face seat-card-back" aria-hidden="true">◆</span>
-                              <span className="seat-card-face seat-card-front">{member.vote}</span>
-                            </div>
+                            <SeatCard vote={member.vote} revealed={snapshot.room.revealed} round={snapshot.room.round} scale={snapshot.room.roundSettings.voteScale} />
                             {snapshot.room.revealed && member.originalVote && (
                               <span className="vote-change-indicator" title={`${t("originalVote")}: ${member.originalVote}`}>
                                 {currentIndex > originalIndex ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
