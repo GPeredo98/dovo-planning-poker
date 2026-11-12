@@ -11,6 +11,8 @@ Real-time Planning Poker for teams. Anyone can create or join a room without cre
 - Other people can join through the link or code and choose a name as well.
 - Votes update in real time. Cards remain hidden until the host reveals them.
 - The host can reveal or clear the cards, rename the room or topic, remove members, and transfer the host role. Leaving as host closes the room; other members are removed when they leave.
+- The host can choose Fibonacci, 0–10, or T-shirt voting scales and allow participants to adjust a revealed vote one step above or below their original card. The reaction setting is reserved for a future release.
+- Room settings changed after reveal apply in the next round; changing the scale before reveal clears existing votes. The host's last saved settings are reused when creating a room on the same device.
 - The interface will support English (the default language), Spanish, Arabic, and Portuguese. Arabic uses right-to-left (RTL) text direction.
 - Users can choose between light and dark themes.
 - The application plans to support Google AdSense without blocking voting controls.
@@ -50,7 +52,7 @@ Supabase is not configured in this scaffold yet. The planned environment variabl
 ## Supabase setup
 
 1. Create a Supabase project and copy its project URL, public anon key, and service-role key from the API settings into `.env.local`.
-2. Open the Supabase SQL Editor and run [`supabase/schema.sql`](supabase/schema.sql). It creates the room tables, rate limits, locked-down row-level security, and server-only RPC functions. Re-running it updates the room-code constraint to accept new six-character codes while preserving existing eight-character invitations, and installs the `leave_room` operation used when a member exits. Re-run this script after future schema changes; it is designed to be rerunnable.
+2. Open the Supabase SQL Editor and run [`supabase/schema.sql`](supabase/schema.sql). It creates the room tables, rate limits, locked-down row-level security, and server-only RPC functions. Re-run it when upgrading to install room settings and the updated voting functions; existing rooms retain Fibonacci defaults. The script is designed to be rerunnable.
 3. No table publication setup is needed for this app's Realtime Broadcast channels. They carry room change notifications only; all reads and writes go through server routes. Do not enable Postgres Changes for these tables.
 4. In Supabase **Database → Extensions**, enable `pg_cron`, then run this once in the SQL Editor to remove rooms after their seven-day inactivity window:
 
@@ -76,7 +78,7 @@ Ad slots remain hidden until both the publisher and slot IDs are configured. The
 
 ## Local data and privacy
 
-No account is required. `localStorage` will contain only the language (`en`, `es`, `ar`, or `pt`), the theme (`light` or `dark`), and the name chosen by the person. English is the initial language. Votes and data needed for an active room live in Supabase, not in `localStorage`.
+No account is required. `localStorage` contains only the language (`en`, `es`, `ar`, or `pt`), theme (`light` or `dark`), name, optional avatar link, and host's preferred room settings. English is the initial language. Votes and active room state live in Supabase, not in `localStorage`.
 
 Names are visible to people in the room. The retention policy for rooms and participants must be defined before deployment.
 

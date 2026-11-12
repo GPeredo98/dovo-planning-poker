@@ -7,6 +7,7 @@ import { AdSlot } from "@/components/adsense";
 import { SiteHeader } from "@/components/site-header";
 import { usePreferences } from "@/components/preferences-provider";
 import { useTranslation } from "@/lib/i18n/use-translation";
+import { readRoomSettings } from "@/lib/room/settings";
 
 function messageForError(code: string | undefined, t: ReturnType<typeof useTranslation>) {
   if (code === "supabase_not_configured") return t("configurationMissing");
@@ -42,7 +43,7 @@ export function HomeScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(action === "create"
-          ? { name, topic: t("defaultTopic") }
+          ? { name, topic: t("defaultTopic"), settings: readRoomSettings() }
           : { name, roomCode: roomCode.trim().toUpperCase() }),
       });
       const result = await response.json() as { roomId?: string; error?: string };

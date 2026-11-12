@@ -13,6 +13,10 @@ create table if not exists public.rooms (
 );
 
 alter table public.rooms
+  add column if not exists settings jsonb not null default '{"allowVoteChanges":false,"allowReactions":false,"voteScale":"fibonacci"}'::jsonb,
+  add column if not exists round_settings jsonb not null default '{"allowVoteChanges":false,"allowReactions":false,"voteScale":"fibonacci"}'::jsonb;
+
+alter table public.rooms
   drop constraint if exists rooms_code_check;
 
 alter table public.rooms
@@ -54,6 +58,11 @@ create table if not exists public.votes (
   updated_at timestamptz not null default now(),
   primary key (room_id, round_number, participant_id)
 );
+
+alter table public.votes add column if not exists original_value text;
+alter table public.votes drop constraint if exists votes_value_check;
+alter table public.votes add constraint votes_value_check
+  check (value in ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '13', '21', '34', '55', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '?'));
 
 create index if not exists participants_room_active_idx
   on public.participants(room_id, joined_at)
@@ -106,7 +115,37 @@ begin
 end;
 $$;
 
-create or replace function public.create_room(p_name text, p_topic text, p_credential_hash text)
+create or replace function public.valid_room_settings(p_settings jsonb)
+returns boolean
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select coalesce(
+    jsonb_typeof(p_settings) = 'object'
+    and jsonb_typeof(p_settings->'allowVoteChanges') = 'boolean'
+    and jsonb_typeof(p_settings->'allowReactions') = 'boolean'
+    and p_settings->>'voteScale' in ('fibonacci', 'numbers', 'shirts'),
+    false
+  );
+$$;
+
+create or replace function public.room_vote_scale(p_scale text)
+returns text[]
+language sql
+immutable
+set search_path = public, pg_temp
+as $$
+  select case p_scale
+    when 'fibonacci' then array['0','1','2','3','5','8','13','21','34','55','?']
+    when 'numbers' then array['0','1','2','3','4','5','6','7','8','9','10','?']
+    when 'shirts' then array['XS','S','M','L','XL','XXL','?']
+    else null
+  end;
+$$;
+
+drop function if exists public.create_room(text, text, text);
+create or replace function public.create_room(p_name text, p_topic text, p_credential_hash text, p_settings jsonb)
 returns jsonb
 language plpgsql
 security definer
@@ -123,14 +162,15 @@ begin
   if p_topic is null or char_length(btrim(p_topic)) not between 1 and 80 then
     raise exception 'invalid_room_name';
   end if;
+  if not public.valid_room_settings(p_settings) then raise exception 'invalid_settings'; end if;
 
   loop
     v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
     exit when not exists (select 1 from public.rooms where code = v_code);
   end loop;
 
-  insert into public.rooms (code, name, topic)
-  values (v_code, btrim(p_name), btrim(p_topic))
+  insert into public.rooms (code, name, topic, settings, round_settings)
+  values (v_code, btrim(p_name), btrim(p_topic), p_settings, p_settings)
   returning * into v_room;
 
   insert into public.participants (room_id, name, credential_hash)
@@ -230,7 +270,8 @@ begin
         'avatarUrl', p.avatar_url,
         'isHost', p.id = v_room.host_participant_id,
         'hasVoted', v.participant_id is not null,
-        'vote', case when v_room.revealed then v.value else null end
+        'vote', case when v_room.revealed then v.value else null end,
+        'originalVote', case when v_room.revealed and v.original_value is distinct from v.value then v.original_value else null end
       ) order by p.joined_at, p.id
     ),
     '[]'::jsonb
@@ -252,6 +293,8 @@ begin
       'hostParticipantId', v_room.host_participant_id,
       'round', v_room.round_number,
       'revealed', v_room.revealed,
+      'settings', v_room.settings,
+      'roundSettings', v_room.round_settings,
       'expiresAt', v_room.expires_at
     ),
     'members', v_members,
@@ -279,12 +322,14 @@ as $$
 declare
   v_room public.rooms%rowtype;
   v_participant_id uuid;
+  v_original text;
+  v_cards text[];
 begin
   select * into v_room from public.rooms where id = p_room_id for update;
   if not found then raise exception 'room_not_found'; end if;
   if v_room.expires_at <= now() then raise exception 'room_expired'; end if;
-  if v_room.revealed then raise exception 'round_revealed'; end if;
-  if p_value not in ('0', '1', '2', '3', '5', '8', '13', '21', '34', '55', '?') then
+  v_cards := public.room_vote_scale(v_room.round_settings->>'voteScale');
+  if p_value is null or array_position(v_cards, p_value) is null then
     raise exception 'invalid_vote';
   end if;
 
@@ -292,12 +337,54 @@ begin
   where room_id = p_room_id and credential_hash = p_credential_hash and removed_at is null;
   if not found then raise exception 'participant_not_found'; end if;
 
-  insert into public.votes (room_id, round_number, participant_id, value)
-  values (p_room_id, v_room.round_number, v_participant_id, p_value)
-  on conflict (room_id, round_number, participant_id)
-  do update set value = excluded.value, updated_at = now();
+  if v_room.revealed then
+    if not (v_room.round_settings->>'allowVoteChanges')::boolean then raise exception 'round_revealed'; end if;
+    select coalesce(original_value, value) into v_original from public.votes
+    where room_id = p_room_id and round_number = v_room.round_number and participant_id = v_participant_id;
+    if not found or array_position(v_cards, v_original) is null
+       or abs(array_position(v_cards, p_value) - array_position(v_cards, v_original)) > 1 then
+      raise exception 'invalid_vote';
+    end if;
+    update public.votes set value = p_value, original_value = v_original, updated_at = now()
+    where room_id = p_room_id and round_number = v_room.round_number and participant_id = v_participant_id;
+  else
+    insert into public.votes (room_id, round_number, participant_id, value)
+    values (p_room_id, v_room.round_number, v_participant_id, p_value)
+    on conflict (room_id, round_number, participant_id)
+    do update set value = excluded.value, updated_at = now();
+  end if;
 
   update public.rooms set expires_at = now() + interval '7 days' where id = p_room_id;
+  return true;
+end;
+$$;
+
+create or replace function public.update_room_settings(p_room_id uuid, p_credential_hash text, p_settings jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_room public.rooms%rowtype;
+begin
+  if not public.valid_room_settings(p_settings) then raise exception 'invalid_settings'; end if;
+  select * into v_room from public.rooms where id = p_room_id for update;
+  if not found then raise exception 'room_not_found'; end if;
+  if v_room.expires_at <= now() then raise exception 'room_expired'; end if;
+  perform 1 from public.participants
+  where id = v_room.host_participant_id and room_id = p_room_id
+    and credential_hash = p_credential_hash and removed_at is null;
+  if not found then raise exception 'host_required'; end if;
+
+  if not v_room.revealed and v_room.round_settings->>'voteScale' <> p_settings->>'voteScale' then
+    delete from public.votes where room_id = p_room_id and round_number = v_room.round_number;
+  end if;
+  update public.rooms
+  set settings = p_settings,
+      round_settings = case when v_room.revealed then round_settings else p_settings end,
+      expires_at = now() + interval '7 days'
+  where id = p_room_id;
   return true;
 end;
 $$;
@@ -368,7 +455,7 @@ begin
   elsif p_action = 'clear' then
     delete from public.votes where room_id = p_room_id;
     update public.rooms
-    set round_number = round_number + 1, revealed = false
+    set round_number = round_number + 1, revealed = false, round_settings = settings
     where id = p_room_id;
   elsif p_action in ('rename_room', 'rename_topic') then
     if p_value is null or char_length(btrim(p_value)) not between 1 and 80 then
@@ -468,7 +555,8 @@ end;
 $$;
 
 revoke execute on function public.consume_rate_limit(text, text, integer, integer) from public, anon, authenticated;
-revoke execute on function public.create_room(text, text, text) from public, anon, authenticated;
+revoke execute on function public.create_room(text, text, text, jsonb) from public, anon, authenticated;
+revoke execute on function public.update_room_settings(uuid, text, jsonb) from public, anon, authenticated;
 revoke execute on function public.join_room(uuid, text, text, text) from public, anon, authenticated;
 revoke execute on function public.get_room_snapshot(uuid, text) from public, anon, authenticated;
 revoke execute on function public.submit_room_vote(uuid, text, text) from public, anon, authenticated;
@@ -478,7 +566,8 @@ revoke execute on function public.leave_room(uuid, text) from public, anon, auth
 revoke execute on function public.delete_expired_rooms() from public, anon, authenticated;
 
 grant execute on function public.consume_rate_limit(text, text, integer, integer) to service_role;
-grant execute on function public.create_room(text, text, text) to service_role;
+grant execute on function public.create_room(text, text, text, jsonb) to service_role;
+grant execute on function public.update_room_settings(uuid, text, jsonb) to service_role;
 grant execute on function public.join_room(uuid, text, text, text) to service_role;
 grant execute on function public.get_room_snapshot(uuid, text) to service_role;
 grant execute on function public.submit_room_vote(uuid, text, text) to service_role;

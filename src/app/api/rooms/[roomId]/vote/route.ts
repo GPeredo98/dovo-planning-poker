@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCredentialHash, notifyRoomChanged, publicDatabaseError } from "@/lib/room/server";
 import { isRoomId } from "@/lib/room/session";
-import { VOTE_CARDS } from "@/lib/room/types";
+import { isVoteValue } from "@/lib/room/types";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(
@@ -17,7 +17,7 @@ export async function POST(
   try {
     const body: unknown = await request.json();
     const value = typeof body === "object" && body !== null && "value" in body ? body.value : null;
-    if (typeof value !== "string" || !VOTE_CARDS.includes(value as (typeof VOTE_CARDS)[number])) {
+    if (!isVoteValue(value)) {
       return NextResponse.json({ error: "invalid_vote" }, { status: 400 });
     }
 

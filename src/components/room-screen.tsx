@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   Camera,
   Check,
   Copy,
@@ -13,17 +15,20 @@ import {
   EyeOff,
   Pencil,
   RotateCcw,
+  Settings,
   ShieldCheck,
   Trash2,
   UserMinus,
+  X,
 } from "lucide-react";
 import { AdSlot } from "@/components/adsense";
 import { SiteHeader } from "@/components/site-header";
 import { usePreferences } from "@/components/preferences-provider";
 import { useTranslation } from "@/lib/i18n/use-translation";
 import { normalizeAvatarUrl } from "@/lib/room/avatar";
+import { saveRoomSettings } from "@/lib/room/settings";
 import { getSupabaseBrowser } from "@/lib/supabase/browser";
-import { VOTE_CARDS, type RoomMember, type RoomSnapshot, type VoteValue } from "@/lib/room/types";
+import { isVoteScale, VOTE_SCALES, type RoomMember, type RoomSettings, type RoomSnapshot, type VoteValue } from "@/lib/room/types";
 
 type RoomScreenProps = {
   roomId: string;
@@ -66,6 +71,7 @@ function errorMessage(code: string | undefined, t: ReturnType<typeof useTranslat
   if (code === "session_invalid") return t("sessionExpired");
   if (code === "enter_name" || code === "invalid_name") return t("enterName");
   if (code === "invalid_avatar") return t("avatarInvalid");
+  if (code === "settings_storage_failed") return t("settingsStorageFailed");
   return t("actionFailed");
 }
 
@@ -83,6 +89,9 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   const [editingRoom, setEditingRoom] = useState(false);
   const [editingTopic, setEditingTopic] = useState(false);
   const [editingAvatar, setEditingAvatar] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pendingSettings, setPendingSettings] = useState<RoomSettings | null>(null);
+  const settingsDialog = useRef<HTMLDialogElement>(null);
   const [avatarDraft, setAvatarDraft] = useState("");
   const [avatarInvalid, setAvatarInvalid] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
@@ -91,6 +100,10 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   const syncedAvatar = useRef<string | null>(null);
   const inRoom = pageState === "ready" && snapshot !== null;
   const serverAvatar = snapshot?.members.find((member) => member.id === snapshot.currentParticipantId)?.avatarUrl ?? "";
+
+  useEffect(() => {
+    if (settingsOpen) settingsDialog.current?.showModal();
+  }, [settingsOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -262,7 +275,6 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
         setNotice(result.error ?? "action_failed");
         return;
       }
-
       setRefreshKey((value) => value + 1);
       setPageState("loading");
     } catch {
@@ -299,7 +311,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   }
 
   async function submitVote(value: VoteValue) {
-    if (!snapshot || snapshot.room.revealed) return;
+    if (!snapshot) return;
     setPending(true);
     setNotice("");
     try {
@@ -319,6 +331,41 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
     } catch {
       setNotice("action_failed");
     } finally {
+      setPending(false);
+    }
+  }
+
+  async function updateSettings(settings: RoomSettings) {
+    if (!snapshot || pending) return;
+    if (!snapshot.room.revealed && settings.voteScale !== snapshot.room.roundSettings.voteScale
+      && snapshot.members.some((member) => member.hasVoted) && !window.confirm(t("scaleClearsVotes"))) return;
+    setPending(true);
+    setPendingSettings(settings);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      const result = await response.json() as RoomSnapshot & { error?: string };
+      if (!response.ok) {
+        setNotice(result.error ?? "action_failed");
+        if (response.status === 401) setPageState("join");
+        return;
+      }
+      setSnapshot(result);
+      setSelectedVote(result.myVote);
+      try {
+        saveRoomSettings(settings);
+      } catch {
+        setNotice("settings_storage_failed");
+      }
+      setRefreshKey((current) => current + 1);
+    } catch {
+      setNotice("action_failed");
+    } finally {
+      setPendingSettings(null);
       setPending(false);
     }
   }
@@ -356,10 +403,11 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
   }
 
   const isHost = snapshot?.room.hostParticipantId === snapshot?.currentParticipantId;
+  const displayedSettings = pendingSettings ?? snapshot?.room.settings;
   const voteCount = snapshot?.members.filter((member) => member.hasVoted).length ?? 0;
   const memberTotal = snapshot?.members.length ?? 0;
   const progress = memberTotal ? Math.round((voteCount / memberTotal) * 100) : 0;
-  const average = snapshot?.room.revealed
+  const average = snapshot?.room.revealed && snapshot.room.roundSettings.voteScale !== "shirts"
     ? snapshot.members.map((member) => member.vote).filter((vote): vote is string => vote !== null && vote !== "?").map(Number).filter(Number.isFinite)
     : [];
   const averageValue = average.length
@@ -442,11 +490,16 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
               <button className="invite-button" type="button" onClick={() => void copyText(window.location.href, t("linkCopied"))}>
                 <Copy size={16} /><span>{t("copyLink")}</span>
               </button>
-              <button className="code-copy-button" type="button" onClick={() => void copyText(snapshot.room.code, t("codeCopied"))}>
-                <span className="code-copy-label">{t("showRoomCode")}</span>
-                <code>{snapshot.room.code}</code>
-                <Copy size={14} />
-              </button>
+              <div className="room-code-controls">
+                <button className="code-copy-button" type="button" onClick={() => void copyText(snapshot.room.code, t("codeCopied"))}>
+                  <span className="code-copy-label">{t("showRoomCode")}</span>
+                  <code>{snapshot.room.code}</code>
+                  <Copy size={14} />
+                </button>
+                <button className="icon-button room-settings-button" type="button" onClick={() => setSettingsOpen(true)} title={t("roomSettings")} aria-label={t("roomSettings")}>
+                  <Settings size={19} />
+                </button>
+              </div>
             </div>
           </section>
 
@@ -487,6 +540,11 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
               <div className="seat-list">
                 {snapshot.members.map((member, index) => {
                   const isMe = member.id === snapshot.currentParticipantId;
+                  const cards: readonly VoteValue[] = VOTE_SCALES[snapshot.room.roundSettings.voteScale];
+                  const currentIndex = cards.findIndex((card) => card === member.vote);
+                  const originalIndex = cards.findIndex((card) => card === (member.originalVote ?? member.vote));
+                  const down = cards[currentIndex - 1];
+                  const up = cards[currentIndex + 1];
                   const stateText = snapshot.room.revealed
                     ? member.hasVoted ? t("voteRecorded") : t("noVote")
                     : member.hasVoted ? t("cardReady") : t("choosing");
@@ -499,10 +557,25 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                     >
                       <div className="seat-card-slot">
                         {member.hasVoted ? (
-                          <div className="seat-card">
-                            <span className="seat-card-face seat-card-back" aria-hidden="true">◆</span>
-                            <span className="seat-card-face seat-card-front">{member.vote}</span>
-                          </div>
+                          <>
+                            <div className="seat-card">
+                              <span className="seat-card-face seat-card-back" aria-hidden="true">◆</span>
+                              <span className="seat-card-face seat-card-front">{member.vote}</span>
+                            </div>
+                            {snapshot.room.revealed && member.originalVote && (
+                              <span className="vote-change-indicator" title={`${t("originalVote")}: ${member.originalVote}`}>
+                                {currentIndex > originalIndex ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                                <span className="sr-only">{currentIndex > originalIndex ? t("voteIncreased") : t("voteDecreased")}. {t("originalVote")}: </span>
+                                <span dir="ltr">{member.originalVote}</span>
+                              </span>
+                            )}
+                            {isMe && snapshot.room.revealed && snapshot.room.roundSettings.allowVoteChanges && (
+                              <div className="vote-adjustments">
+                                <button type="button" aria-label={t("increaseVote")} title={t("increaseVote")} disabled={pending || !up || currentIndex + 1 > originalIndex + 1} onClick={() => void submitVote(up)}><ArrowUp size={15} /></button>
+                                <button type="button" aria-label={t("decreaseVote")} title={t("decreaseVote")} disabled={pending || !down || currentIndex - 1 < originalIndex - 1} onClick={() => void submitVote(down)}><ArrowDown size={15} /></button>
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <div className="seat-card-empty" aria-hidden="true" />
                         )}
@@ -580,7 +653,7 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
                     <span>{t("votesHidden")}</span>
                   </div>
                   <div className="vote-deck" role="group" aria-label={t("selectCard")}>
-                    {VOTE_CARDS.map((card, index) => (
+                    {VOTE_SCALES[snapshot.room.roundSettings.voteScale].map((card, index) => (
                       <button
                         className={`vote-card${selectedVote === card ? " is-selected" : ""}`}
                         key={card}
@@ -600,6 +673,37 @@ export function RoomScreen({ roomId }: RoomScreenProps) {
               {notice && <p className="inline-notice" role="status">{errorMessage(notice, t)}</p>}
             </section>
           </div>
+
+          {settingsOpen && displayedSettings && (
+            <dialog ref={settingsDialog} className="settings-dialog" onClose={() => setSettingsOpen(false)} aria-labelledby="settings-title">
+              <div className="settings-header">
+                <h2 id="settings-title">{t("roomSettings")}</h2>
+                <button className="icon-button" type="button" onClick={() => settingsDialog.current?.close()} aria-label={t("close")}><X size={19} /></button>
+              </div>
+              <p className="settings-hint">{snapshot.room.revealed ? t("settingsNextRound") : t("settingsCurrentRound")}</p>
+              {!isHost && <p className="settings-hint">{t("settingsHostOnly")}</p>}
+              <fieldset disabled={!isHost || pending} className="settings-fields">
+                <label className="settings-option">
+                  <span>{t("enableVoteChanges")}</span>
+                  <input type="checkbox" role="switch" checked={displayedSettings.allowVoteChanges} onChange={(event) => void updateSettings({ ...displayedSettings, allowVoteChanges: event.target.checked })} />
+                </label>
+                <label className="settings-option">
+                  <span>{t("enableReactions")} <small>{t("comingSoon")}</small></span>
+                  <input type="checkbox" role="switch" checked={displayedSettings.allowReactions} onChange={(event) => void updateSettings({ ...displayedSettings, allowReactions: event.target.checked })} />
+                </label>
+                <label className="settings-scale" htmlFor="vote-scale">{t("voteScale")}</label>
+                <select id="vote-scale" className="text-field" value={displayedSettings.voteScale} onChange={(event) => {
+                  const voteScale = event.target.value;
+                  if (isVoteScale(voteScale)) void updateSettings({ ...displayedSettings, voteScale });
+                }}>
+                  <option value="fibonacci">{t("scaleFibonacci")}</option>
+                  <option value="numbers">{t("scaleNumbers")}</option>
+                  <option value="shirts">{t("scaleShirts")}</option>
+                </select>
+              </fieldset>
+              {notice && <p className="inline-notice" role="status">{errorMessage(notice, t)}</p>}
+            </dialog>
+          )}
 
           {editingAvatar && (
             <div className="modal-backdrop" onClick={() => setEditingAvatar(false)}>

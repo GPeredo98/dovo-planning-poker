@@ -9,8 +9,7 @@
 ## Bank of ideas
 - Emojis interactivos tipo reloj o algo mientras esperan y que salgan arriba del participante
 - historico de topicos botados max. 5 en cola y se van borrando
-- Poder cambiar entre escalas, rooms settings
-- Hacer mas llamativo el topic y que este al centro
+- Poder cambiar entre escalas, rooms settings, count down para votar
 - Hacer logos y favicon
 - mas efectos suaves o cosas satisfactorias una vibracion saltito o algo asi
 - ver como mejorar performance del realtime
